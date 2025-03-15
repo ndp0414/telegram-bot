@@ -1,18 +1,21 @@
 import telebot
 import os
-import threading
 import requests
 from flask import Flask, request
 from dotenv import load_dotenv
 
-# Load environment variables from `.env` file
+# ✅ Load environment variables from `.env` file
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+ADMIN_ID = os.getenv("ADMIN_ID")
 
-if not TOKEN or ADMIN_ID == 0:
+# ✅ Validate ADMIN_ID
+if not TOKEN:
+    raise ValueError("🚨 ERROR: TOKEN is missing! Check your .env file.")
+if not ADMIN_ID or not ADMIN_ID.isdigit():
     raise ValueError(
-        "🚨 ERROR: TOKEN ya ADMIN_ID missing hai! .env file check karein.")
+        "🚨 ERROR: ADMIN_ID is missing or invalid! Check your .env file.")
+ADMIN_ID = int(ADMIN_ID)
 
 bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 
@@ -30,9 +33,10 @@ user_last_message = {}
 
 
 def is_spam(user_id, message_text):
+    """Check if the user is sending duplicate messages to prevent spam."""
     last_msg = user_last_message.get(user_id, "")
-    user_last_message[user_id] = message_text
-    return last_msg == message_text
+    user_last_message[user_id] = message_text.strip().lower()
+    return last_msg == message_text.strip().lower()
 
 
 @bot.message_handler(commands=['start'])
@@ -64,7 +68,7 @@ def withdraw_paws(message):
 
 def process_withdraw(message):
     try:
-        amount = int(message.text)
+        amount = int(message.text.strip())
         if 200 <= amount <= 10000:
             bot.send_message(
                 message.chat.id,
@@ -73,12 +77,10 @@ def process_withdraw(message):
             bot.register_next_step_handler(
                 message, lambda msg: confirm_withdraw(msg, amount))
         else:
-            bot.send_message(
-                message.chat.id,
-                "❌ **Kripya 200-10,000 Paws ke beech amount dalein!**")
+            bot.send_message(message.chat.id,
+                             "❌ **Invalid range! Use 200-10,000 Paws.**")
     except ValueError:
-        bot.send_message(message.chat.id,
-                         "❌ **Galat format! Kripya sahi amount dalein.**")
+        bot.send_message(message.chat.id, "❌ **Please enter a valid number!**")
 
 
 def confirm_withdraw(message, amount):
@@ -116,24 +118,31 @@ def home():
 
 @app.route(f'/{TOKEN}', methods=['POST'])
 def receive_update():
-    update = telebot.types.Update.de_json(request.get_json())
-    bot.process_new_updates([update])
-    return "OK", 200
+    try:
+        update = telebot.types.Update.de_json(request.get_json())
+        bot.process_new_updates([update])
+        return "OK", 200
+    except Exception as e:
+        print("🚨 Error processing update:", str(e))
+        return "ERROR", 500
 
 
-# ✅ Set Webhook Dynamically
+# ✅ Set Webhook Dynamically with Validation
 def set_webhook():
     render_url = os.getenv("RENDER_EXTERNAL_URL")
-
     if not render_url:
-        print("❌ ERROR: Render URL is missing!")
+        print(
+            "❌ ERROR: Render URL is missing! Set RENDER_EXTERNAL_URL in .env.")
         return
 
     webhook_url = f"{render_url}/{TOKEN}"
     response = requests.post(f"https://api.telegram.org/bot{TOKEN}/setWebhook",
                              json={"url": webhook_url})
 
-    print("🔗 Webhook Set:", response.json())
+    if response.status_code == 200:
+        print("✅ Webhook successfully set:", response.json())
+    else:
+        print("❌ Webhook failed:", response.json())
 
 
 # ✅ Run Flask with Gunicorn on Render
