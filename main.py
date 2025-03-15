@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
-PORT = int(os.getenv("PORT", 10000))  # Render assigns this dynamically
 
 if not TOKEN or ADMIN_ID == 0:
     raise ValueError(
@@ -140,4 +139,6 @@ def set_webhook():
 # ✅ Run Flask with Gunicorn on Render
 if __name__ == "__main__":
     set_webhook()
-    app.run(host="0.0.0.0", port=PORT)
+    port = int(os.environ.get("PORT",
+                              10000))  # Default to 10000 if PORT is not set
+    app.run(host="0.0.0.0", port=port)
