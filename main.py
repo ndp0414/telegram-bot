@@ -5,10 +5,11 @@ import requests
 from flask import Flask, request
 from dotenv import load_dotenv
 
-# 🔹 `.env` file se environment variables load karein
+# Load environment variables from `.env` file
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+PORT = int(os.getenv("PORT", 8080))  # Render provides a dynamic port
 
 if not TOKEN or ADMIN_ID == 0:
     raise ValueError(
@@ -121,18 +122,20 @@ def receive_update():
     return "OK", 200
 
 
-def run_flask():
-    app.run(host="0.0.0.0", port=8080)
+# ✅ Set Webhook Dynamically
+def set_webhook():
+    render_url = os.getenv("RENDER_EXTERNAL_URL")
+    if not render_url:
+        raise ValueError("❌ ERROR: Render URL is missing!")
+
+    webhook_url = f"{render_url}/{TOKEN}"
+    response = requests.post(f"https://api.telegram.org/bot{TOKEN}/setWebhook",
+                             json={"url": webhook_url})
+
+    print("🔗 Webhook Response:", response.json())
 
 
-# ✅ Webhook Setup (Fix URL)
-WEBHOOK_URL = f"https://f09b40d8-9592-4c05-abc6-6dceb097dd4d-00-1756mgmiwos6y.pike.replit.dev/{TOKEN}"
-requests.post(f"https://api.telegram.org/bot{TOKEN}/setWebhook",
-              json={"url": WEBHOOK_URL})
-
-print("🤖 Bot is running with Webhook!")
-
-# ✅ Run Flask Server in a Separate Thread
+# ✅ Run Flask with Gunicorn on Render
 if __name__ == "__main__":
-    threading.Thread(target=run_flask).start()
-# This is a dummy comment to enable Git push
+    set_webhook()
+    app.run(host="0.0.0.0", port=PORT)
