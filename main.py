@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
-PORT = int(os.getenv("PORT", 8080))  # Render provides a dynamic port
+PORT = int(os.getenv("PORT", 10000))  # Render assigns this dynamically
 
 if not TOKEN or ADMIN_ID == 0:
     raise ValueError(
@@ -125,14 +125,16 @@ def receive_update():
 # ✅ Set Webhook Dynamically
 def set_webhook():
     render_url = os.getenv("RENDER_EXTERNAL_URL")
+
     if not render_url:
-        raise ValueError("❌ ERROR: Render URL is missing!")
+        print("❌ ERROR: Render URL is missing!")
+        return
 
     webhook_url = f"{render_url}/{TOKEN}"
     response = requests.post(f"https://api.telegram.org/bot{TOKEN}/setWebhook",
                              json={"url": webhook_url})
 
-    print("🔗 Webhook Response:", response.json())
+    print("🔗 Webhook Set:", response.json())
 
 
 # ✅ Run Flask with Gunicorn on Render
